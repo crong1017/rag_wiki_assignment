@@ -1,0 +1,531 @@
+{
+  "metadata": {
+    "title": "RAG LLM Wiki",
+    "date": "2026-11-24",
+    "method": "5 篇公開資料人工審閱、摘要與結構化匯入；不是向量資料庫，也沒有進行模型訓練。",
+    "slides_revised": "2026-11-24｜擴充至 22 頁，增補兩條 RAG 流程、檢索詳解、案例、互動練習與 3 題測驗"
+  },
+  "sources": [
+    {
+      "id": "S01",
+      "org": "IBM",
+      "title": "What is RAG (Retrieval Augmented Generation)?",
+      "url": "https://www.ibm.com/think/topics/retrieval-augmented-generation",
+      "scope": "RAG 核心概念、retriever / generator / integration layer、chunking 與 embedding、微調比較",
+      "insight": "RAG 由外部知識庫擷取相關內容，將其加入提示，再由語言模型生成回應；知識庫、檢索器與生成器彼此分工。"
+    },
+    {
+      "id": "S02",
+      "org": "AWS",
+      "title": "What is RAG (Retrieval-Augmented Generation)?",
+      "url": "https://aws.amazon.com/what-is/retrieval-augmented-generation/",
+      "scope": "一般 LLM 限制、RAG 目的、企業知識庫、semantic search",
+      "insight": "RAG 不必重新訓練原模型，就能在生成回答前引用權威資料；可緩解過時、缺乏領域知識等問題，但不保證零錯誤。"
+    },
+    {
+      "id": "S03",
+      "org": "Google Cloud",
+      "title": "What is Retrieval-Augmented Generation (RAG)?",
+      "url": "https://cloud.google.com/use-cases/retrieval-augmented-generation",
+      "scope": "外部知識接地（grounding）、應用場景、品質評估與改進",
+      "insight": "RAG 用於讓生成式 AI 存取新、私有或專業領域資料；可透過 groundedness 與檢索品質等指標逐步評估及改善。"
+    },
+    {
+      "id": "S04",
+      "org": "Microsoft Learn",
+      "title": "Retrieval augmented generation (RAG) and indexes in Microsoft Foundry",
+      "url": "https://learn.microsoft.com/en-us/azure/foundry/concepts/retrieval-augmented-generation",
+      "scope": "Retrieve → Augment → Generate、索引、keyword / vector / hybrid 檢索、引用",
+      "insight": "典型 RAG 包含檢索、增補、生成三步；索引可使用關鍵字、向量或混合式檢索，並保存文件標題與來源網址協助引用。"
+    },
+    {
+      "id": "S05",
+      "org": "NVIDIA",
+      "title": "What is Retrieval-Augmented Generation (RAG)?",
+      "url": "https://www.nvidia.com/en-us/glossary/retrieval-augmented-generation/",
+      "scope": "資料蒐集與清理、chunking、embedding、indexing、reranking、向量檢索",
+      "insight": "檢索前需將內容擷取、分塊並建立索引；向量表徵能協助找出語意相近的內容，必要時以 reranking 調整排序。"
+    }
+  ],
+  "entries": [
+    {
+      "id": "W01",
+      "title": "RAG 的定義與目標",
+      "summary": "RAG（Retrieval-Augmented Generation，檢索增強生成）是結合「找資料」與「文字生成」的架構。先從外部知識庫找到相關內容，再讓 LLM 使用這些內容回答。",
+      "points": [
+        "RAG 的重點是為生成流程提供額外上下文，而不是重新訓練模型。",
+        "Retrieval 找資料；Augmentation 把資料放入提示；Generation 產生回答。",
+        "合適的場景包括需要特定領域或經常更新的資料。"
+      ],
+      "example": "詢問「新版實驗室安全規範有哪些？」時，系統先查最新公告，然後整理為易讀答案。",
+      "sources": [
+        "S01",
+        "S02",
+        "S04"
+      ],
+      "keywords": [
+        "RAG",
+        "定義",
+        "檢索",
+        "生成"
+      ]
+    },
+    {
+      "id": "W02",
+      "title": "為什麼不能只靠 LLM？",
+      "summary": "一般 LLM 的訓練知識有時間和範圍限制，可能不知道某間組織的私有文件，也可能生成不精確的陳述。",
+      "points": [
+        "模型內部知識未必包含最新規定或企業內部文件。",
+        "回答流暢不代表有證據支持。",
+        "RAG 提供可指定的外部資料，有助改善相關性並支持來源追溯。"
+      ],
+      "example": "單靠模型可能不知道今天更新的借書規則；若知識庫已收錄新版規則，就可以先查再答。",
+      "sources": [
+        "S02",
+        "S03",
+        "S04"
+      ],
+      "keywords": [
+        "LLM",
+        "幻覺",
+        "過時",
+        "資料"
+      ]
+    },
+    {
+      "id": "W03",
+      "title": "資料 ingest：蒐集、切塊、索引",
+      "summary": "將資料納入知識庫前，先確認來源可靠、文字可讀、內容去重，再依段落或主題切成適當大小的 chunks，為後續檢索建立索引。",
+      "points": [
+        "Ingest 是將外部材料整理成可查詢內容的過程。",
+        "Chunking 可讓檢索以較小的語意單位進行，但切得過小可能破壞上下文。",
+        "索引可以採關鍵字、語意或向量等方式，不是每種 RAG 都必須用向量資料庫。"
+      ],
+      "example": "將一份 60 頁的工作手冊拆成「休假規則」「報銷流程」等可引用段落。",
+      "sources": [
+        "S01",
+        "S04",
+        "S05"
+      ],
+      "keywords": [
+        "ingest",
+        "chunk",
+        "索引",
+        "知識庫"
+      ]
+    },
+    {
+      "id": "W04",
+      "title": "Embedding 與檢索方式",
+      "summary": "Embedding 是將文字或其他內容轉成數值表徵；向量檢索比較語意相近程度，和單純比對字面關鍵字不同。",
+      "points": [
+        "向量檢索可找出不同字詞但意思接近的資料。",
+        "關鍵字檢索對專有名詞、代碼或精確名稱仍有用。",
+        "混合式檢索可以結合不同方式；排序不佳時可考慮 reranking。"
+      ],
+      "example": "查詢「請假要先告訴誰？」也可能找到標題為「缺勤通報流程」的文件。",
+      "sources": [
+        "S04",
+        "S05"
+      ],
+      "keywords": [
+        "embedding",
+        "向量",
+        "keyword",
+        "hybrid",
+        "reranking"
+      ]
+    },
+    {
+      "id": "W05",
+      "title": "RAG 三階段的運作流程",
+      "summary": "使用者提問 → Retriever 從索引取得相關內容 → 把提問與內容整合成 prompt → LLM 生成有依據的回答。",
+      "points": [
+        "Retrieve：根據問題查找候選片段。",
+        "Augment：將有用片段與原始問題一起提供模型。",
+        "Generate：生成回答，必要時附上可回查的資料來源。"
+      ],
+      "example": "問「實驗室可以飲食嗎？」→ 找出安全規範段落 → 在回應中解釋規定並顯示來源。",
+      "sources": [
+        "S01",
+        "S04",
+        "S05"
+      ],
+      "keywords": [
+        "pipeline",
+        "retrieve",
+        "augment",
+        "generate"
+      ]
+    },
+    {
+      "id": "W06",
+      "title": "RAG 的好處、限制與驗證",
+      "summary": "RAG 可能提升專業問題回答的相關性與可追溯性，但前提是來源、檢索、上下文與生成都足夠可靠。",
+      "points": [
+        "如果原始文件錯誤或過時，答案可能跟著出錯。",
+        "如果沒找到相關片段，不應勉強生成肯定答案。",
+        "需檢查來源對應、內容是否超出證據、使用者是否真的能理解。"
+      ],
+      "example": "找不到更新後的政策時，應回報「目前知識庫沒有足夠資料」，而不是亂猜。",
+      "sources": [
+        "S02",
+        "S03",
+        "S04"
+      ],
+      "keywords": [
+        "評估",
+        "grounding",
+        "限制",
+        "品質"
+      ]
+    },
+    {
+      "id": "W07",
+      "title": "RAG、Fine-tuning 與應用",
+      "summary": "RAG 用外部檢索內容補強特定知識；微調（Fine-tuning）通常透過訓練調整模型在特定任務中的行為。兩者可搭配使用。",
+      "points": [
+        "需要快速更新規定／引用來源：優先考慮 RAG。",
+        "需要固定寫作格式或任務行為：可以評估微調等方法。",
+        "常見應用包括內部文件問答、客服知識查詢與專業資料助手。"
+      ],
+      "example": "圖書館問答系統引用最新借閱規則回答，而不是要重新訓練整個語言模型。",
+      "sources": [
+        "S01",
+        "S02",
+        "S03",
+        "S04"
+      ],
+      "keywords": [
+        "fine-tuning",
+        "微調",
+        "應用",
+        "客服"
+      ]
+    }
+  ],
+  "slides": [
+    {
+      "id": "P01",
+      "kicker": "OPENING",
+      "title": "讓 AI 先查資料，再回答",
+      "wiki": [
+        "W01",
+        "W02"
+      ],
+      "sources": [
+        "S01",
+        "S02"
+      ],
+      "chapter": "01｜問題與目標"
+    },
+    {
+      "id": "P02",
+      "kicker": "LEARNING MAP",
+      "title": "這堂課會學到什麼？",
+      "wiki": [
+        "W01",
+        "W02",
+        "W06"
+      ],
+      "sources": [
+        "S01",
+        "S02",
+        "S03"
+      ],
+      "chapter": "01｜問題與目標"
+    },
+    {
+      "id": "P03",
+      "kicker": "WHY",
+      "title": "回答很流暢，也可能沒有依據",
+      "wiki": [
+        "W02"
+      ],
+      "sources": [
+        "S02",
+        "S03"
+      ],
+      "chapter": "01｜問題與目標"
+    },
+    {
+      "id": "P04",
+      "kicker": "THINK FIRST",
+      "title": "小情境：問一個模型不一定知道的問題",
+      "wiki": [
+        "W02",
+        "W07"
+      ],
+      "sources": [
+        "S02",
+        "S03"
+      ],
+      "chapter": "01｜問題與目標"
+    },
+    {
+      "id": "P05",
+      "kicker": "DEFINITION",
+      "title": "RAG 到底是什麼？",
+      "wiki": [
+        "W01"
+      ],
+      "sources": [
+        "S01",
+        "S02"
+      ],
+      "chapter": "02｜核心觀念"
+    },
+    {
+      "id": "P06",
+      "kicker": "CORE FLOW",
+      "title": "R、A、G：三個角色各做什麼？",
+      "wiki": [
+        "W01",
+        "W05"
+      ],
+      "sources": [
+        "S01",
+        "S04"
+      ],
+      "chapter": "02｜核心觀念"
+    },
+    {
+      "id": "P07",
+      "kicker": "TWO PIPELINES",
+      "title": "RAG 其實有兩條流程",
+      "wiki": [
+        "W03",
+        "W05"
+      ],
+      "sources": [
+        "S01",
+        "S04",
+        "S05"
+      ],
+      "chapter": "02｜核心觀念"
+    },
+    {
+      "id": "P08",
+      "kicker": "DATA PREP",
+      "title": "Ingest：先把資料變成可查的知識",
+      "wiki": [
+        "W03"
+      ],
+      "sources": [
+        "S01",
+        "S05"
+      ],
+      "chapter": "02｜核心觀念"
+    },
+    {
+      "id": "P09",
+      "kicker": "CHUNKING",
+      "title": "Chunking：為什麼要把長文件切塊？",
+      "wiki": [
+        "W03"
+      ],
+      "sources": [
+        "S01",
+        "S05"
+      ],
+      "chapter": "02｜核心觀念"
+    },
+    {
+      "id": "P10",
+      "kicker": "EMBEDDING",
+      "title": "Embedding：讓文字變成可比較的向量",
+      "wiki": [
+        "W04"
+      ],
+      "sources": [
+        "S04",
+        "S05"
+      ],
+      "chapter": "03｜檢索技術"
+    },
+    {
+      "id": "P11",
+      "kicker": "RETRIEVAL",
+      "title": "關鍵字、向量、混合檢索有什麼差別？",
+      "wiki": [
+        "W04"
+      ],
+      "sources": [
+        "S04",
+        "S05"
+      ],
+      "chapter": "03｜檢索技術"
+    },
+    {
+      "id": "P12",
+      "kicker": "RANKING",
+      "title": "找到 10 篇，不代表 10 篇都適合",
+      "wiki": [
+        "W04",
+        "W06"
+      ],
+      "sources": [
+        "S03",
+        "S05"
+      ],
+      "chapter": "03｜檢索技術"
+    },
+    {
+      "id": "P13",
+      "kicker": "PROMPT",
+      "title": "Augment：如何把證據交給 LLM？",
+      "wiki": [
+        "W05",
+        "W06"
+      ],
+      "sources": [
+        "S01",
+        "S04"
+      ],
+      "chapter": "03｜檢索技術"
+    },
+    {
+      "id": "P14",
+      "kicker": "FULL JOURNEY",
+      "title": "從提問到答案：完整走一次",
+      "wiki": [
+        "W03",
+        "W05"
+      ],
+      "sources": [
+        "S01",
+        "S04",
+        "S05"
+      ],
+      "chapter": "03｜檢索技術"
+    },
+    {
+      "id": "P15",
+      "kicker": "APPLICATION",
+      "title": "案例：把校園 FAQ 變成知識助手",
+      "wiki": [
+        "W02",
+        "W05",
+        "W07"
+      ],
+      "sources": [
+        "S01",
+        "S02",
+        "S03"
+      ],
+      "chapter": "04｜案例與比較"
+    },
+    {
+      "id": "P16",
+      "kicker": "LIVE DEMO",
+      "title": "互動練習：哪一種資料足以回答？",
+      "wiki": [
+        "W05",
+        "W06"
+      ],
+      "sources": [
+        "S02",
+        "S03",
+        "S04"
+      ],
+      "chapter": "04｜案例與比較"
+    },
+    {
+      "id": "P17",
+      "kicker": "COMPARE",
+      "title": "有 RAG 與沒有 RAG，差在哪？",
+      "wiki": [
+        "W01",
+        "W02",
+        "W06"
+      ],
+      "sources": [
+        "S01",
+        "S02",
+        "S03"
+      ],
+      "chapter": "04｜案例與比較"
+    },
+    {
+      "id": "P18",
+      "kicker": "DECISION",
+      "title": "RAG 跟 Fine-tuning 是同一件事嗎？",
+      "wiki": [
+        "W01",
+        "W07"
+      ],
+      "sources": [
+        "S01",
+        "S02"
+      ],
+      "chapter": "04｜案例與比較"
+    },
+    {
+      "id": "P19",
+      "kicker": "QUALITY",
+      "title": "RAG 最容易在哪三個環節出錯？",
+      "wiki": [
+        "W06"
+      ],
+      "sources": [
+        "S02",
+        "S03",
+        "S04"
+      ],
+      "chapter": "05｜驗證與複習"
+    },
+    {
+      "id": "P20",
+      "kicker": "QUALITY LOOP",
+      "title": "設計 Loop：錯誤要退回哪裡？",
+      "wiki": [
+        "W03",
+        "W05",
+        "W06"
+      ],
+      "sources": [
+        "S01",
+        "S03",
+        "S04"
+      ],
+      "chapter": "05｜驗證與複習"
+    },
+    {
+      "id": "P21",
+      "kicker": "CHECKPOINT",
+      "title": "三題小測驗：概念真的懂了嗎？",
+      "wiki": [
+        "W01",
+        "W03",
+        "W05",
+        "W06"
+      ],
+      "sources": [
+        "S01",
+        "S02",
+        "S04"
+      ],
+      "chapter": "05｜驗證與複習"
+    },
+    {
+      "id": "P22",
+      "kicker": "TAKEAWAYS",
+      "title": "重點整理：從來源到有依據的回答",
+      "wiki": [
+        "W01",
+        "W03",
+        "W05",
+        "W06",
+        "W07"
+      ],
+      "sources": [
+        "S01",
+        "S02",
+        "S03",
+        "S04",
+        "S05"
+      ],
+      "chapter": "05｜驗證與複習"
+    }
+  ]
+}
