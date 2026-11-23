@@ -1,0 +1,99 @@
+{
+  "date": "2026-11-24",
+  "sources": 5,
+  "wiki": 7,
+  "slides": 22,
+  "validation": "PASS",
+  "validation_errors": [],
+  "fault_injection": "PASS",
+  "fault_injection_errors": [
+    "P01 invalid Wiki W99",
+    "P01 source S01 not supported by its Wiki",
+    "P01 source S02 not supported by its Wiki"
+  ],
+  "browser_tests": [
+    {
+      "name": "slides opens",
+      "passed": true
+    },
+    {
+      "name": "22 slide nodes",
+      "passed": true
+    },
+    {
+      "name": "initial page P01",
+      "passed": true
+    },
+    {
+      "name": "next button",
+      "passed": true
+    },
+    {
+      "name": "keyboard next",
+      "passed": true
+    },
+    {
+      "name": "previous button",
+      "passed": true
+    },
+    {
+      "name": "jump to interactive demo",
+      "passed": true
+    },
+    {
+      "name": "no-evidence case refuses to guess",
+      "passed": true
+    },
+    {
+      "name": "evidence case cites teaching doc",
+      "passed": true
+    },
+    {
+      "name": "three independent quiz answers",
+      "passed": true
+    },
+    {
+      "name": "all slides have Wiki and source links",
+      "passed": true
+    },
+    {
+      "name": "deep link P22",
+      "passed": true
+    },
+    {
+      "name": "last slide disables next",
+      "passed": true
+    },
+    {
+      "name": "wiki has seven entries",
+      "passed": true
+    },
+    {
+      "name": "wiki keyword search filters entries",
+      "passed": true
+    },
+    {
+      "name": "mobile slide visible",
+      "passed": true
+    },
+    {
+      "name": "mobile no horizontal overflow first slide",
+      "passed": true
+    },
+    {
+      "name": "mobile quiz visible",
+      "passed": true
+    },
+    {
+      "name": "mobile no horizontal overflow quiz",
+      "passed": true
+    },
+    {
+      "name": "all 22 slides fit mobile width",
+      "passed": true
+    }
+  ],
+  "browser_pass": 20,
+  "browser_total": 20,
+  "mobile_all_slides_no_overflow": true
+}
