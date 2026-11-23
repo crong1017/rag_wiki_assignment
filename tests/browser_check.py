@@ -1,0 +1,87 @@
+from pathlib import Path
+import json,shutil
+from playwright.sync_api import sync_playwright
+ROOT=Path(__file__).resolve().parents[1]
+CSS=(ROOT/'assets'/'site.css').read_text('utf8')+(ROOT/'assets'/'slides.css').read_text('utf8')
+SLIDE_JS=(ROOT/'assets'/'slides.js').read_text('utf8')
+
+def load_slides(page):
+ body=(ROOT/'slides.html').read_text('utf8').replace('<script src="assets/slides.js"></script>','')
+ page.set_content(body,wait_until='load')
+ page.add_style_tag(content=CSS)
+ page.add_script_tag(content=SLIDE_JS)
+
+def load_wiki(page):
+ body=(ROOT/'wiki.html').read_text('utf8')
+ page.set_content(body,wait_until='load')
+ page.add_style_tag(content=(ROOT/'assets'/'site.css').read_text('utf8'))
+results=[]
+def check(name,condition):
+ results.append({'name':name,'passed':bool(condition)})
+ print(('PASS' if condition else 'FAIL'),name)
+with sync_playwright() as pw:
+ browser=pw.chromium.launch(headless=True,executable_path=(shutil.which('chromium') or shutil.which('google-chrome') or shutil.which('chrome')),args=['--no-sandbox'])
+ page=browser.new_page(viewport={'width':1366,'height':900},device_scale_factor=1)
+ load_slides(page)
+ check('slides opens',page.title().endswith('RAG 教學'))
+ check('22 slide nodes',page.locator('section.slide').count()==22)
+ check('initial page P01',page.locator('section.slide.active').get_attribute('data-slide')=='P01')
+ page.locator('#nextBtn').click()
+ check('next button',page.locator('section.slide.active').get_attribute('data-slide')=='P02')
+ page.keyboard.press('ArrowRight')
+ check('keyboard next',page.locator('section.slide.active').get_attribute('data-slide')=='P03')
+ page.locator('#prevBtn').click()
+ check('previous button',page.locator('section.slide.active').get_attribute('data-slide')=='P02')
+ page.locator('#slideJump').select_option('P16')
+ check('jump to interactive demo',page.locator('section.slide.active').get_attribute('data-slide')=='P16')
+ page.locator('[data-demo="hours"]').click()
+ check('no-evidence case refuses to guess','不能確認' in page.locator('#demoAnswer').inner_text())
+ page.locator('[data-demo="renew"]').click()
+ check('evidence case cites teaching doc','示意文件 B' in page.locator('#demoAnswer').inner_text())
+ page.locator('#slideJump').select_option('P21')
+ page.locator('.quiz-block[data-question="q1"] .choice[data-ok="true"]').click()
+ page.locator('.quiz-block[data-question="q2"] .choice[data-ok="true"]').click()
+ page.locator('.quiz-block[data-question="q3"] .choice[data-ok="true"]').click()
+ check('three independent quiz answers',page.locator('.choice.correct').count()==3 and '3 / 3' in page.locator('#quizStatus').inner_text())
+ page.locator('#slideJump').select_option('P01')
+ page.screenshot(path=str(ROOT/'tests'/'slides_desktop.png'),full_page=True)
+ page.locator('#slideJump').select_option('P09')
+ page.screenshot(path=str(ROOT/'tests'/'slides_chunking.png'),full_page=True)
+ page.locator('#slideJump').select_option('P16')
+ page.screenshot(path=str(ROOT/'tests'/'slides_demo.png'),full_page=True)
+ page.locator('#slideJump').select_option('P21')
+ page.screenshot(path=str(ROOT/'tests'/'slides_quiz.png'),full_page=True)
+ check('all slides have Wiki and source links',all(page.locator(f'#P{i:02d} .slidefoot a').count()>=2 for i in range(1,23)))
+ # Load via in-memory content, test hash jump
+ page.evaluate("location.hash='#P22'")
+ check('deep link P22',page.locator('section.slide.active').get_attribute('data-slide')=='P22')
+ check('last slide disables next',page.locator('#nextBtn').is_disabled())
+ wiki=browser.new_page(viewport={'width':1366,'height':900})
+ load_wiki(wiki)
+ check('wiki has seven entries',wiki.locator('.kb-card').count()==7)
+ wiki.locator('#wikiSearch').fill('Embedding')
+ check('wiki keyword search filters entries',1<=wiki.locator('.kb-card:visible').count()<7)
+ wiki.locator('#wikiSearch').fill('')
+ wiki.screenshot(path=str(ROOT/'tests'/'wiki_desktop.png'),full_page=False)
+ mobile=browser.new_page(viewport={'width':390,'height':844},device_scale_factor=1)
+ load_slides(mobile)
+ check('mobile slide visible',mobile.locator('section.slide.active h1').is_visible())
+ check('mobile no horizontal overflow first slide',mobile.evaluate('document.documentElement.scrollWidth <= window.innerWidth+2'))
+ mobile.locator('#slideJump').select_option('P21')
+ check('mobile quiz visible',mobile.locator('.quiz-block:visible').count()==3)
+ check('mobile no horizontal overflow quiz',mobile.evaluate('document.documentElement.scrollWidth <= window.innerWidth+2'))
+ mobile.screenshot(path=str(ROOT/'tests'/'slides_mobile.png'),full_page=True)
+ # overflow check on all slide pages, desktop+mobile
+ layouts=[]
+ for idx in range(1,23):
+  mobile.locator('#slideJump').select_option(f'P{idx:02d}')
+  layouts.append((idx,mobile.evaluate('document.documentElement.scrollWidth <= window.innerWidth+2')))
+ check('all 22 slides fit mobile width',all(x[1] for x in layouts))
+ browser.close()
+res=json.loads((ROOT/'tests'/'test_report.json').read_text('utf8'))
+res['browser_tests']=results
+res['browser_pass']=sum(x['passed'] for x in results)
+res['browser_total']=len(results)
+res['mobile_all_slides_no_overflow']=all(x[1] for x in layouts)
+(ROOT/'tests'/'test_report.json').write_text(json.dumps(res,ensure_ascii=False,indent=2),encoding='utf8')
+raise SystemExit(0 if all(x['passed'] for x in results) else 1)
